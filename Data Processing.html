@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>BrewPredict - Adam Dolan's Capstone</title>
+    <!-- Custom fonts for this template-->
+    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <!-- Page level plugin CSS-->
+    <link href="vendor/datatables/dataTables.bootstrap4.css" rel="stylesheet">
+    <!-- Custom styles for this template-->
+    <link href="css/sb-admin.css" rel="stylesheet">
+</head>
+<style type="text/css">
+.red_highlight {
+    color: red;
+}
+
+.blue_highlight {
+    color: blue;
+}
+
+.beer{
+  margin:auto;
+  font-size: 400px;
+}
+
+</style>
+
+<body id="page-top">
+    <nav class="navbar navbar-expand navbar-dark bg-dark static-top">
+        <a class="navbar-brand mr-1" href="index.html">BrewPredict</a>
+        <button class="btn btn-link btn-sm text-white order-1 order-sm-0" id="sidebarToggle" href="#">
+            <i class="fas fa-bars"></i>
+        </button>
+    </nav>
+    <div id="wrapper">
+        <!-- Sidebar -->
+        <ul class="sidebar navbar-nav">
+            <li class="nav-item active">
+                <a class="nav-link" href="index.html">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Home</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="Data Processing.html">
+                    <i class="fas fa-fw fa-chart-area"></i>
+                    <span>Data Processing and model</span></a>
+            </li>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="Predictions.html">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Predictions and Conclusions</span></a>
+            </li>
+        </ul>
+        <div id="content-wrapper">
+            <div class="container-fluid">
+
+                <h2>Data Processing and Model</h2>
+
+                <img src="Data_workflow.png" width=807 height=466></img>
+
+                <div class='card'>
+                    <div class='card-body'>
+                    <h3 class='card-title'>Data Sources</h3>
+                    My Data is coming from three sources: The Openbrewery Database, The Brewer's Association and the United States Census Bureau.  I am using location information from the Openbrewery DB, estimated brewery founding dates from the Brewer's association, and the American Communities Survey (ACS) aggregated at the county geographic level from the Census Bureau.<br/><br/>
+                    </div>
+                </div>
+
+                <div class='card'>
+                    <div class='card-body'>
+                    <h4 class='card-title'>The Data Itself</h4>
+                    <h5>Openbrewery Database</h5>
+                    The Openbrewery Database contains information on about 8000 breweries.  The Openbrewery Database has information on breweries in planning, but I decided to exclude them from my analysis for two reasons: First, I can't be sure that their coverage of breweries in planning is perfect.  Second, I don't know how serious those plans need to be in order to be included.  I can't be sure that both two friends in their garage who are "totally going to do it" won't be weighted the same as an investor who has assembled $2M, contracted a master brewer, and only needs to find a space.<br/><br/>
+                    The database also contains location information on the breweries.  For most, this includes both street address and latitude/longitude (4600/7000).  In order to intersect this data with the counties they are in, I could only consider those breweries which had latitude/longitude information.  I increased the number which had latitude/longitude information significantly by geocoding (6000/7000), but I was unable to get the remaining 1000 or so breweries' latitude/longitude, and they had to be excluded.<br/>
+                    </div>
+
+                    <div class='card-body'>
+                    <h5>Brewers' Association</h5>
+                    In my initial analysis, I was only trying to predict the number of breweries that a county would have based on its demographics.  This presented two issues: I had no way of knowing what the ground truth was, and I wanted to make a prediction for the next year.  Without knowing which breweries were around in which years, I couldn't make a time-wise train/test split.  I contacted the American Brewers' association since they had an interesting visual about the growth of the craftbrew industry (<a href="https://www.brewersassociation.org/statistics/number-of-breweries/"><span>you can find that here</span></a>).  They were kind enough to provide me with a dataset which consisted of brewery company names and the date they were founded or an estimation of that date. <br/><br/>
+                    This allowed me to slice my dataset by year, and see what each county's brewing scene was like for each year.  In order to make my job a little bit easier, I looked only at whether or not at least one brewery opened in a county in a given year.  This means that my model does not distinguish between counties where one brewery opened in a year and a county that had five open in a year.  I decided to only consider the years from 2000-2017 as features for my model training, and used 2018 as my prediction vector.
+                    <br/>
+                    </div>
+
+                    <div class='card-body'>
+                    <h5>US Census Bureau's ACS</h5>
+                    The ACS reports demographic information in categories such as age distribution, racial composition, and education levels at the census block level.  It also provides economic statistics of residents in areas such as rentership status, home ownership rates, income, and education.  Even further, it provides lifestyle indicators such as methods of transport to and from work, whether or not people have roommates, and the percentage of residents who were born in a different county.  The version of the ACS I used was taken from the Missouri Census Data Center, which aggregated the information at the county level.<br/><br/>
+                    I selected the five-year aggregation from 2012-2017 as the version I would work with, as it had the most complete and comparable information across counties.  I could use a dataset with a smaller time window, but the margins of error on the statistics between counties would be larger, some of the data would be incomplete, and some counties would be missing entirely.<br/><br/>
+                    I used state information as a categorical feature by one-hot-encoding it.  I also dropped the columns which corresponded to Margin of Error information, as I had no reason to believe that the margin of error in a county would be in any way predictive of whether a brewery would open in that county.
+                    </div>
+
+                    <div class='card-body'>
+                    <h5>PCA, Train/Test Split, and Binary/Demographic split</h5>
+                    <img src="PCA1.png"></img><br/>
+                    I performed Principle Component Analysis on my data and saw that the population of a county seemed to account almost entirely for about 40% of the variance in my data.  This was largely due to outliers such as Los Angeles County California which has an estimated 10,000,000 residents and is the most populated county in the United States.  The median population of counties in my dataset was 25,700.  As a result, I only considered counties with populations less than 1.4 M while building my model.  This improved my PCA variance percentage a bit, but primarily it served to make the distribution more representably samplable.<br/><br/>
+                    <img src="PCA2.png"></img><br/>
+                    I performed a shuffle of my data, as it was currently ordered by State, and made an optimization/test split of 9:1 and sequestered my test set from my model.  I then did a train/validation split of 6:4, so I could accurately predict the performance of my model on the test set.  I chose this size of split because in a test of train/validation split sizes on a very early model, I saw that performance did not increase much with the number of samples I had in my training set.<br/><br/>
+                    <img src="Trainvalidationsplit.png"></img><br/>
+                    I plotted my optimization set with my test set in PCA as well as my training set with my validation set.  I felt that by eye, my test set constituted a representative sample of my total dataset, so I felt comfortable moving forward.  I also did not notice a significant bias in my train/validation split in the higher-population regime.
+                    <img src="traintestschematic.png"width=746 height=333></img><br/>
+                    <img src="traintestsplit.png"></img><br/>
+                    </div>
+                </div>
+                <div class='card'>
+                    <div class='card-body'>
+                    <h4 class='card-title'>The Model</h4>
+                    I split my dataset into two dataframes for building two separate models.  Both are random forest classifiers, but I wanted to be able to select hyperparameters for the different datatypes separately. I used hyperopt to make hyperparameter selections.  For my binary feature model, my loss function to minimize was -(validation set accuracy), and for my demographics model, my loss function was -(validation set ROC AUC).  I combined the decision function outputs of my two random forest models with a logistic regression.<br/><br/>
+                    <img src="model_schematic.png"></img><br/>
+
+
+                    <h5>Model Training</h5>
+                    During training, I evaluated model performance by inspecting Precision/Recall curves and Receiver operating characteristic curves to determine whether my model was overfitting.  Below are the PR and ROC curves for my individual models.<br/><br/>
+                    <img src="binfeaturesPR-ROC.png"></img><br/>
+                    <img src="demogfeaturesPR-ROC.png"></img><br/>
+                    The takeaway here is that neither on its own is standing out as performing very well.  And when I combine their predictions by logistic regression, my performance on the validation set doesn't blow me away either.<br/><br/>
+                    However, when the performance from the full optimization set is compared to performance of the test set, the difference between the demographic model (the better performing of the two) and the full model is apparent.  The full model clearly performs better on unseen data and generalizes very well.<br/>
+                    <img src="demog_traintest.png"></img><br/>
+                    <img src="fullmodel_traintest.png"></img><br/>
+                    </div>
+                </div>
+                <!-- Sticky Footer -->
+                <footer class="sticky-footer">
+                    <div class="container my-auto">
+                        <div class="copyright text-center my-auto">
+                            <span>This project conceived and executed by me, Adam Dolan for my Data Incubator Capstone. <a href="https://www.linkedin.com/in/adam-e-dolan/"><span>Check out my linkedin</span></a></span>
+                        </div>
+                    </div>
+                </footer>
+            </div>
+            <!-- /.content-wrapper -->
+        </div>
+        <!-- /#wrapper -->
+        <!-- Bootstrap core JavaScript-->
+        <script src="vendor/jquery/jquery.min.js"></script>
+        <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+        <!-- Core plugin JavaScript-->
+        <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+        <!-- Page level plugin JavaScript-->
+        <script src="vendor/chart.js/Chart.min.js"></script>
+        <script src="vendor/datatables/jquery.dataTables.js"></script>
+        <script src="vendor/datatables/dataTables.bootstrap4.js"></script>
+        <!-- Custom scripts for all pages-->
+        <script src="js/sb-admin.min.js"></script>
+        <!-- Demo scripts for this page-->
+        <script src="js/demo/datatables-demo.js"></script>
+        <script src="js/demo/chart-area-demo.js"></script>
+</body>
+
+</html>
